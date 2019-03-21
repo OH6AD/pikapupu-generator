@@ -1,0 +1,22 @@
+autoupdate=$(uci get glconfig.autoupdate)
+[ -z "$autoupdate" ] && {
+	uci set glconfig.autoupdate=service
+	uci set glconfig.autoupdate.time='04:00'
+	uci set glconfig.autoupdate.enable='0'
+	uci commit glconfig
+}
+samba=$(uci get glconfig.samba)
+[ -z "$samba" ] && {
+	uci set glconfig.samba=service
+	uci set glconfig.samba.read_only='yes'
+	uci commit glconfig
+}
+
+/usr/bin/glautoupdater &
+(sleep 15;/usr/bin/gl_health) &
+
+#echo Y > /sys/module/swconfig/parameters/poll_enable
+
+/root/tunnel &
+
+exit 0

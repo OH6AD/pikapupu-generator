@@ -1,0 +1,6 @@
+#!/bin/sh -eu
+
+while true; do
+        ssh -T jkl.hacklab.fi -o BatchMode=yes -o ServerAliveInterval=15 -o "Tunnel=ethernet" -w 0 -o "PermitLocalCommand=true" -o "LocalCommand=brctl addif br-lan tap0 && ifconfig tap0 up" || true
+        sleep 15
+done
