@@ -1,7 +1,7 @@
 #!/bin/sh -eu
 
 bridge_new="$1"
-bridge_orig=`sed -nr 's/iff:\s*(.*)/\1/p' /proc/$PPID/fdinfo/*`
+bridge_orig=`sed -nr 's/^iff:\s*(.*)/\1/p' /proc/$PPID/fdinfo/*`
 
 if test -z "$bridge_orig"; then
     echo This session has no ethernet tunnel >&2
