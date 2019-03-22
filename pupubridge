@@ -1,0 +1,20 @@
+#!/bin/sh -eu
+
+bridge_new="$1"
+bridge_orig=`sed -nr 's/iff:\s*(.*)/\1/p' /proc/$PPID/fdinfo/*`
+
+if test -z "$bridge_orig"; then
+    echo This session has no ethernet tunnel >&2
+    exit 1
+fi
+
+# Removing old if any
+ip link delete "$bridge_new" 2>/dev/null || true
+
+# Renaming current link and bring it up
+ip link set "$bridge_orig" name "$bridge_new" up
+
+# Add to bridge
+brctl addif pupu "$bridge_new"
+
+echo Tunnel "$bridge_new" is up
