@@ -1,20 +1,30 @@
 #!/bin/sh -eu
 
-bridge_new="$1"
-bridge_orig=`sed -nr 's/^iff:\s*(.*)/\1/p' /proc/$PPID/fdinfo/*`
-
-if test -z "$bridge_orig"; then
-    echo This session has no ethernet tunnel >&2
+if test $# -ne 2; then
+    exec 2>&1
+    echo Renames this ethernet tunnel to LINK_NAME and adds it to given BRIDGE.
+    echo
+    echo Usage: Add the following line to ~root/.ssh/authorized_keys:
+    echo "       command=\"$0 LINK_NAME BRIDGE\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty SSH_PUBLIC_KEY"
     exit 1
 fi
 
+link_new="$1"
+link_orig=`sed -nr 's/^iff:\s*(.*)/\1/p' /proc/$PPID/fdinfo/*`
+bridge="$2"
+
+if test -z "$link_orig"; then
+    echo "This session has no ethernet tunnel. Are you running: ssh -o 'Tunnel=ethernet'" >&2
+    exit 2
+fi
+
 # Removing old if any
-ip link delete "$bridge_new" 2>/dev/null || true
+ip link delete "$link_new" 2>/dev/null || true
 
 # Renaming current link and bring it up
-ip link set "$bridge_orig" name "$bridge_new" up
+ip link set "$link_orig" name "$link_new" up
 
 # Add to bridge
-brctl addif pupu "$bridge_new"
+brctl addif "$bridge" "$link_new"
 
-echo Tunnel "$bridge_new" is up
+echo Tunnel "$link_new" is connected to "$bridge".
