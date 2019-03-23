@@ -43,5 +43,4 @@ security measures. The public key line should look like this:
 command="pupubridge pikapupu99 kaakko",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty SSH_PUBLIC_KEY_HERE
 ```
 
-The server-side script *pupubridge* is located in a gist at
-https://gist.github.com/zouppen/3f609519828cdfb1392a15b24bd7f4f6
+The server-side script [pupubridge](pupubridge) is located in this repo.
