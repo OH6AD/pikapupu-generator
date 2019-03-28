@@ -1,7 +1,7 @@
 #!/bin/sh -eu
 
 while true; do
-    grep -q "BTN_0.*hi" /sys/kernel/debug/gpio && target=pupu || target=kaakko
+    grep -q "BTN_0.*hi" /sys/kernel/debug/gpio && target=1 || target=0
     ssh -T jkl.hacklab.fi -o BatchMode=yes -o ServerAliveInterval=15 -o "Tunnel=ethernet" -w 0 -o "PermitLocalCommand=true" -o "LocalCommand=brctl addif br-lan tap0 && ifconfig tap0 up" $target || true
     sleep 10
 done
