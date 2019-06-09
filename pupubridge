@@ -1,19 +1,34 @@
 #!/bin/sh -eu
 
-if test $# -lt 3; then
-    exec 2>&1
-    echo Renames this ethernet tunnel to LINK_NAME and adds it to given BRIDGE with
-    echo given COST for spanning-tree link cost.
-    echo If multiple bridges are given, user may select it by passing it as an parameter to ssh.
-    echo
-    echo Usage: Add the following line to ~root/.ssh/authorized_keys:
-    echo "       command=\"$0 LINK_NAME COST BRIDGE..\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty SSH_PUBLIC_KEY"
+while getopts n:c:h name; do
+    case $name in
+	n) link_new="$OPTARG" ;;
+	c) cost="$OPTARG" ;;
+	?) fail= ;;
+    esac
+done
+
+shift $(($OPTIND - 1))
+
+# Fail if no bridge name given, fail set or interface name unset
+if test "${fail+1}" -o -z "${link_new+1}"; then
+    cat 2>&1 <<EOF
+Renames this ethernet tunnel to LINK_NAME and adds it to given BRIDGE
+with given COST for spanning-tree link cost. If multiple bridges are
+given, user may select it by passing it as an parameter to ssh. If no
+bridges are given, not adding to any bridges.
+
+Server usage: Add the following line to ~root/.ssh/authorized_keys:
+	command="$0 -n LINK_NAME [-c COST] [BRIDGE..]\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty SSH_PUBLIC_KEY"
+
+Client usage: Add the following line to ssh command line:
+	-o PermitLocalCommand=true -o "LocalCommand=$0 -n LINK_NAME [-c COST] [BRIDGE]"
+
+EOF
     exit 1
 fi
 
-link_new="$1"
 link_orig=`sed -nr 's/^iff:\s*(.*)/\1/p' /proc/$PPID/fdinfo/*`
-cost="$2"
 
 if test -z "$link_orig"; then
     echo "This session has no ethernet tunnel. Are you running: ssh -o 'Tunnel=ethernet'" >&2
@@ -26,28 +41,42 @@ ip link delete "$link_new" 2>/dev/null || true
 # Renaming current link and bring it up
 ip link set "$link_orig" name "$link_new" up
 
-# Finding out suitable bridge
-shift 2
+test ${SSH_ORIGINAL_COMMAND+1} && site=Remote || site=Local
 
-if echo "${SSH_ORIGINAL_COMMAND-}" | grep -qx '[0-9]'; then
-    # Is a number, trying to get that index
-    shift "$SSH_ORIGINAL_COMMAND"
-    bridge="$1"
-    error=
-else
-    # Is a string, trying to find it
-    error="User may request the following: $@"
-    bridge="$1"
-    for x in "$@"; do
-	if test "$x" = "${SSH_ORIGINAL_COMMAND-}"; then
-	    bridge="$x"
+# If bridges are given, try to bridge
+if test $# -gt 0; then
+    if test $site = "Remote"; then
+	if echo "${SSH_ORIGINAL_COMMAND-}" | grep -qx '[0-9]'; then
+	    # Bridge selector is a number, trying to get that index
+	    shift "$SSH_ORIGINAL_COMMAND"
+	    bridge="$1"
 	    error=
+	else
+	    # Bridge selector is a string, trying to find it
+	    error="The following bridges are allowed: $@"
+	    bridge="$1"
+	    for x in "$@"; do
+		if test "$x" = "${SSH_ORIGINAL_COMMAND-}"; then
+		    bridge="$x"
+		    error=
+		fi
+	    done
 	fi
-    done
+	site=Remote
+    else
+	if test $# -gt 1; then
+	    echo "Local: Only one bridge may be given" >&2
+	    exit 1
+	fi
+	bridge="$1"
+	site=Local
+	error=
+    fi
+    
+    # Add to bridge
+    brctl addif "$bridge" "$link_new"
+    test -z ${cost+1} || brctl setpathcost "$bridge" "$link_new" "$cost"
+    bridgemsg=" and connected to $bridge. $error."
 fi
 
-# Add to bridge
-brctl addif "$bridge" "$link_new"
-brctl setpathcost "$bridge" "$link_new" "$cost"
-
-echo Tunnel "$link_new" is connected to "$bridge". $error
+echo "$site: Interface \"$link_new\" is ready${bridgemsg-.}"
