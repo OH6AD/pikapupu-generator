@@ -27,15 +27,24 @@ ip link delete "$link_new" 2>/dev/null || true
 ip link set "$link_orig" name "$link_new" up
 
 # Finding out suitable bridge
-shift
-error="User may request the following: $@"
-bridge="$1"
-for x in "$@"; do
-    if test "$x" = "${SSH_ORIGINAL_COMMAND-}"; then
-        bridge="$x"
-        error=
-    fi
-done
+shift 2
+
+if echo "${SSH_ORIGINAL_COMMAND-}" | grep -qx '[0-9]'; then
+    # Is a number, trying to get that index
+    shift "$SSH_ORIGINAL_COMMAND"
+    bridge="$1"
+    error=
+else
+    # Is a string, trying to find it
+    error="User may request the following: $@"
+    bridge="$1"
+    for x in "$@"; do
+	if test "$x" = "${SSH_ORIGINAL_COMMAND-}"; then
+	    bridge="$x"
+	    error=
+	fi
+    done
+fi
 
 # Add to bridge
 brctl addif "$bridge" "$link_new"
