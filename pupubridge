@@ -1,17 +1,19 @@
 #!/bin/sh -eu
 
-if test $# -lt 2; then
+if test $# -lt 3; then
     exec 2>&1
-    echo Renames this ethernet tunnel to LINK_NAME and adds it to given BRIDGE.
+    echo Renames this ethernet tunnel to LINK_NAME and adds it to given BRIDGE with
+    echo given COST for spanning-tree link cost.
     echo If multiple bridges are given, user may select it by passing it as an parameter to ssh.
     echo
     echo Usage: Add the following line to ~root/.ssh/authorized_keys:
-    echo "       command=\"$0 LINK_NAME BRIDGE..\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty SSH_PUBLIC_KEY"
+    echo "       command=\"$0 LINK_NAME COST BRIDGE..\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty SSH_PUBLIC_KEY"
     exit 1
 fi
 
 link_new="$1"
 link_orig=`sed -nr 's/^iff:\s*(.*)/\1/p' /proc/$PPID/fdinfo/*`
+cost="$2"
 
 if test -z "$link_orig"; then
     echo "This session has no ethernet tunnel. Are you running: ssh -o 'Tunnel=ethernet'" >&2
@@ -37,5 +39,6 @@ done
 
 # Add to bridge
 brctl addif "$bridge" "$link_new"
+brctl setpathcost "$bridge" "$link_new" "$cost"
 
 echo Tunnel "$link_new" is connected to "$bridge". $error
