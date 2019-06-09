@@ -1,7 +1,8 @@
 #!/bin/sh -eu
 
-while getopts n:c:h name; do
+while getopts i:n:c:h name; do
     case $name in
+	i) ip="$OPTARG" ;;
 	n) link_new="$OPTARG" ;;
 	c) cost="$OPTARG" ;;
 	?) fail= ;;
@@ -22,7 +23,7 @@ Server usage: Add the following line to ~root/.ssh/authorized_keys:
 	command="$0 -n LINK_NAME [-c COST] [BRIDGE..]\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty SSH_PUBLIC_KEY"
 
 Client usage: Add the following line to ssh command line:
-	-o PermitLocalCommand=true -o "LocalCommand=$0 -n LINK_NAME [-c COST] [BRIDGE]"
+	-o PermitLocalCommand=true -o "LocalCommand=$0 -n LINK_NAME [-i IP/CIDR] [-c COST] [BRIDGE]"
 
 EOF
     exit 1
@@ -41,19 +42,24 @@ ip link delete "$link_new" 2>/dev/null || true
 # Renaming current link and bring it up
 ip link set "$link_orig" name "$link_new" up
 
-test ${SSH_ORIGINAL_COMMAND+1} && site=Remote || site=Local
+# Add IP address if given
+if test ${ip+1}; then
+    ip address add "$ip" dev "$link_new"
+    ipmsg=" IP address is $ip."
+fi
+
+test ${SSH_CONNECTION+1} && site="Remote:" || site="Local: "
 
 # If bridges are given, try to bridge
 if test $# -gt 0; then
-    if test $site = "Remote"; then
+    if test ${SSH_CONNECTION+1}; then
 	if echo "${SSH_ORIGINAL_COMMAND-}" | grep -qx '[0-9]'; then
 	    # Bridge selector is a number, trying to get that index
 	    shift "$SSH_ORIGINAL_COMMAND"
 	    bridge="$1"
-	    error=
 	else
 	    # Bridge selector is a string, trying to find it
-	    error="The following bridges are allowed: $@"
+	    error=" The following bridges are allowed: $@."
 	    bridge="$1"
 	    for x in "$@"; do
 		if test "$x" = "${SSH_ORIGINAL_COMMAND-}"; then
@@ -62,21 +68,19 @@ if test $# -gt 0; then
 		fi
 	    done
 	fi
-	site=Remote
     else
 	if test $# -gt 1; then
 	    echo "Local: Only one bridge may be given" >&2
 	    exit 1
 	fi
 	bridge="$1"
-	site=Local
 	error=
     fi
     
     # Add to bridge
     brctl addif "$bridge" "$link_new"
     test -z ${cost+1} || brctl setpathcost "$bridge" "$link_new" "$cost"
-    bridgemsg=" and connected to $bridge. $error."
+    bridgemsg=" and connected to $bridge.${error-}"
 fi
 
-echo "$site: Interface \"$link_new\" is ready${bridgemsg-.}"
+echo "$site Interface $link_new is ready${bridgemsg-.}${ipmsg-}"
