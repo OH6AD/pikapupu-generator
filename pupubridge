@@ -23,7 +23,7 @@ Server usage: Add the following line to ~root/.ssh/authorized_keys:
 	command="$0 -n LINK_NAME [-c COST] [BRIDGE..]",restrict SSH_PUBLIC_KEY
 
 Client usage: Add the following line to ssh command line:
-	-o PermitLocalCommand=true -o "LocalCommand=$0 -n LINK_NAME [-i IP/CIDR] [-c COST] [BRIDGE]"
+	-o PermitLocalCommand=true -o "LocalCommand=exec $0 -n LINK_NAME [-i IP/CIDR] [-c COST] [BRIDGE]"
 
 EOF
     exit 1
