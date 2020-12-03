@@ -20,7 +20,7 @@ given, user may select it by passing it as an parameter to ssh. If no
 bridges are given, not adding to any bridges.
 
 Server usage: Add the following line to ~root/.ssh/authorized_keys:
-	command="$0 -n LINK_NAME [-c COST] [BRIDGE..]\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty SSH_PUBLIC_KEY"
+	command="$0 -n LINK_NAME [-c COST] [BRIDGE..]",restrict SSH_PUBLIC_KEY
 
 Client usage: Add the following line to ssh command line:
 	-o PermitLocalCommand=true -o "LocalCommand=$0 -n LINK_NAME [-i IP/CIDR] [-c COST] [BRIDGE]"
@@ -76,10 +76,10 @@ if test $# -gt 0; then
 	bridge="$1"
 	error=
     fi
-    
+
     # Add to bridge
-    brctl addif "$bridge" "$link_new"
-    test -z ${cost+1} || brctl setpathcost "$bridge" "$link_new" "$cost"
+    ip link set "$link_new" master "$bridge"
+    test -z ${cost+1} || bridge link set dev "$link_new" cost "$cost"
     bridgemsg=" and connected to $bridge.${error-}"
 fi
 
