@@ -1,5 +1,11 @@
 #!/bin/sh -eu
 
+kill_parent () {
+    # When setting this trap we have made sure this is run by SSH, so
+    # we won't kill a random parent, e.g. your mom.
+    kill $PPID
+}
+
 while getopts i:n:c:h name; do
     case $name in
 	i) ip="$OPTARG" ;;
@@ -28,6 +34,15 @@ Client usage: Add the following line to ssh command line:
 EOF
     exit 1
 fi
+
+if test "$(cat /proc/$PPID/comm)" != ssh; then
+    echo "This command must be run by SSH and not from shell" >&2
+    exit 1
+fi
+
+# Now, since we are sure we are running through ssh, we are ready to
+# kill our parent process if we fail
+trap kill_parent EXIT
 
 link_orig=`sed -nr 's/^iff:\s*(.*)/\1/p' /proc/$PPID/fdinfo/*`
 
@@ -82,5 +97,8 @@ if test $# -gt 0; then
     test -z ${cost+1} || bridge link set dev "$link_new" cost "$cost"
     bridgemsg=" and connected to $bridge.${error-}"
 fi
+
+# Now we're ready to exit cleanly
+trap - EXIT
 
 echo "$site Interface $link_new is ready${bridgemsg-.}${ipmsg-}"
